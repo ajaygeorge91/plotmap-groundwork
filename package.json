@@ -1,0 +1,24 @@
+{
+  "name": "plotmap-groundwork",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Try roads, buildings and subdivisions on a virtual copy of a piece of land, then hand a clear plan to an engineer.",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "esbuild src/main.ts --bundle --format=esm --sourcemap --outdir=public/dist --servedir=public --serve=127.0.0.1:5173",
+    "build": "esbuild src/main.ts --bundle --format=esm --minify --outdir=public/dist",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --experimental-strip-types --test 'test/**/*.test.ts'",
+    "samples": "node --experimental-strip-types scripts/make-samples.ts",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3"
+  }
+}
