@@ -14,7 +14,7 @@ It is a web app. It runs in a browser from this folder and needs no internet.
 Nothing of the product is built yet. This repository is the starting point:
 
 - a web page that lists the sample lands
-- four made-up sample lands to work with
+- six made-up sample lands to work with
 - the tools to check, test, build and run the project
 - checks that confirm the sample lands are sound
 
@@ -63,7 +63,7 @@ installed beyond Node itself.
 
 ## Sample lands
 
-All four are made up. None is a real place, and no real owner, address or
+All six are made up. None is a real place, and no real owner, address or
 location is involved.
 
 | File | Size | Ground |
@@ -72,6 +72,8 @@ location is involved.
 | `hillside.json` | 10 acres | Four sides, one hill, a stream on the east side |
 | `riverbend.json` | 25 acres | Seven sides, low ground, a river through it |
 | `ridge.json` | 5 acres | L-shaped, steep slope climbing to the north |
+| `switchback.json` | 1.73 acres | Six sides on a slope, a winding unpaved track that forks, one levelled patch, a public road beside it |
+| `terrace.json` | 2 acres | Four sides on the same climb as Switchback, cut into level steps |
 
 Each file holds:
 
@@ -81,6 +83,9 @@ Each file holds:
 - `elevation`: ground heights in metres on a regular grid, row by row from the
   south, each row from west to east.
 - `water`: streams and rivers as centre lines with a width.
+- `tracks`: ways that are already there, as centre lines with a width. A
+  `track` is unpaved and inside the land; a `road` is a public road beside it.
+- `pads`: patches of ground that are already levelled.
 
 `src/land.ts` has the full description. The format is only a starting point and
 can change as the project needs. The files are generated, so change

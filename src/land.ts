@@ -27,6 +27,26 @@ export interface Watercourse {
   path: Point[];
 }
 
+/** A way across the land that is already there. */
+export interface Track {
+  /** "track" is an unpaved way inside the land. "road" is a public road beside it. */
+  kind: "track" | "road";
+  /** Width in metres. */
+  width: number;
+  /** Centre line, in metres. */
+  path: Point[];
+}
+
+/** A patch of ground that has already been levelled. */
+export interface Pad {
+  name: string;
+  centre: Point;
+  /** Radius of the level patch, in metres. */
+  radius: number;
+  /** Height of the level patch, in metres. */
+  level: number;
+}
+
 /** One sample piece of land, as stored in public/samples/<id>.json. */
 export interface SampleLand {
   id: string;
@@ -40,6 +60,8 @@ export interface SampleLand {
   boundary: Point[];
   elevation: ElevationGrid;
   water: Watercourse[];
+  tracks: Track[];
+  pads: Pad[];
 }
 
 export interface SampleIndexEntry {

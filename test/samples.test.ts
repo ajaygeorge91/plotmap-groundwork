@@ -5,8 +5,19 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
-import { SQUARE_METRES_PER_ACRE, type SampleIndexEntry, type SampleLand } from "../src/land.ts";
+import { SQUARE_METRES_PER_ACRE, type Point, type SampleIndexEntry, type SampleLand } from "../src/land.ts";
 import { buildAll, buildIndex, signedArea, toFileText } from "../scripts/make-samples.ts";
+
+/** True when the point is inside the polygon (points on an edge may go either way). */
+function isInside([px, py]: Point, corners: Point[]): boolean {
+  let inside = false;
+  for (let i = 0, j = corners.length - 1; i < corners.length; j = i++) {
+    const [xi, yi] = corners[i]!;
+    const [xj, yj] = corners[j]!;
+    if (yi > py !== yj > py && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
 
 const read = (name: string): string =>
   readFileSync(new URL(`../public/samples/${name}`, import.meta.url), "utf8");
@@ -14,10 +25,17 @@ const read = (name: string): string =>
 const index = JSON.parse(read("index.json")) as SampleIndexEntry[];
 const lands = index.map((entry) => JSON.parse(read(`${entry.id}.json`)) as SampleLand);
 
-test("there are four sample lands with the expected sizes", () => {
+test("there are six sample lands with the expected sizes", () => {
   assert.deepEqual(
     index.map((entry) => [entry.id, entry.acres]),
-    [["meadow", 2], ["hillside", 10], ["riverbend", 25], ["ridge", 5]],
+    [
+      ["meadow", 2],
+      ["hillside", 10],
+      ["riverbend", 25],
+      ["ridge", 5],
+      ["switchback", 1.73],
+      ["terrace", 2],
+    ],
   );
 });
 
@@ -56,6 +74,32 @@ for (const land of lands) {
       assert.ok(course.width > 0);
     }
   });
+
+  test(`${land.id}: tracks inside the land stay inside the boundary`, () => {
+    for (const track of land.tracks) {
+      assert.ok(track.path.length >= 2);
+      assert.ok(track.width > 0);
+      if (track.kind !== "track") continue;
+      for (const point of track.path) {
+        assert.ok(isInside(point, land.boundary), `${point} is outside the boundary`);
+      }
+    }
+  });
+
+  test(`${land.id}: levelled patches are inside the boundary and level`, () => {
+    for (const pad of land.pads) {
+      assert.ok(isInside(pad.centre, land.boundary));
+      const grid = land.elevation;
+      for (let row = 0; row < grid.rows; row++) {
+        for (let col = 0; col < grid.cols; col++) {
+          const x = grid.originX + col * grid.cellSize;
+          const y = grid.originY + row * grid.cellSize;
+          if (Math.hypot(x - pad.centre[0], y - pad.centre[1]) > pad.radius) continue;
+          assert.equal(grid.values[row * grid.cols + col], pad.level);
+        }
+      }
+    }
+  });
 }
 
 test("the ground is shaped the way each description says", () => {
@@ -65,6 +109,10 @@ test("the ground is shaped the way each description says", () => {
   assert.ok(range(byId["meadow"]!) < 2, "meadow is almost flat");
   assert.ok(range(byId["hillside"]!) > 20, "hillside has a real hill");
   assert.ok(range(byId["ridge"]!) > 30, "ridge is steep");
+  assert.ok(range(byId["switchback"]!) > 10, "switchback is a real slope");
+  assert.ok(range(byId["terrace"]!) > 10, "terrace climbs about as much as switchback");
+  assert.equal(byId["switchback"]!.tracks.filter((track) => track.kind === "track").length, 3);
+  assert.equal(byId["switchback"]!.pads.length, 1);
   assert.equal(byId["riverbend"]!.water[0]?.kind, "river");
   assert.equal(byId["hillside"]!.water[0]?.kind, "stream");
 });

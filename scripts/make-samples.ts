@@ -7,9 +7,11 @@ import { fileURLToPath } from "node:url";
 import {
   SQUARE_METRES_PER_ACRE,
   type ElevationGrid,
+  type Pad,
   type Point,
   type SampleIndexEntry,
   type SampleLand,
+  type Track,
   type Watercourse,
 } from "../src/land.ts";
 
@@ -41,10 +43,37 @@ interface Recipe {
   height: (x: number, y: number) => number;
   /** Water, in the same rough coordinates as the outline. */
   water: Watercourse[];
+  /** Tracks and roads that are already there, in the rough coordinates. */
+  tracks?: Track[];
+  /** Levelled patches, in the rough coordinates. The level is read from `height`. */
+  pads?: { name: string; centre: Point; radius: number }[];
 }
 
 const bump = (x: number, y: number, cx: number, cy: number, spread: number, peak: number): number =>
   peak * Math.exp(-((x - cx) ** 2 + (y - cy) ** 2) / (2 * spread ** 2));
+
+/** 0 below `from`, 1 above `to`, smooth in between. */
+const ease = (value: number, from: number, to: number): number => {
+  const t = Math.min(1, Math.max(0, (value - from) / (to - from)));
+  return t * t * (3 - 2 * t);
+};
+
+// Switchback: a slope that climbs to the north, with one patch levelled near the entrance.
+const switchbackPad = { name: "Levelled patch by the entrance", centre: [92, 18] as Point, radius: 8 };
+const switchbackSlope = (x: number, y: number): number => 64 + 0.17 * y + 0.03 * (110 - x);
+const switchbackHeight = (x: number, y: number): number => {
+  const [px, py] = switchbackPad.centre;
+  const distance = Math.hypot(x - px, y - py);
+  const natural = ease(distance, switchbackPad.radius, switchbackPad.radius + 5);
+  return switchbackSlope(px, py) * (1 - natural) + switchbackSlope(x, y) * natural;
+};
+
+// Terrace: the same overall climb as Switchback, cut into steps 12 metres deep.
+const terraceHeight = (x: number, y: number): number => {
+  const step = y / 12;
+  const whole = Math.floor(step);
+  return 71 + 2.04 * (whole + ease(step - whole, 0.75, 1)) + 0.01 * x;
+};
 
 const recipes: Recipe[] = [
   {
@@ -97,6 +126,35 @@ const recipes: Recipe[] = [
     height: (x, y) => 212 + 0.22 * y + 0.02 * x + bump(x, y, 55, 120, 30, 6),
     water: [],
   },
+  {
+    id: "switchback",
+    name: "Switchback",
+    description:
+      "A six-sided slope that climbs to the north. An unpaved track winds up it from an entrance in the south-east corner and forks near the top. One patch by the entrance is levelled, and a public road passes the south-east side.",
+    acres: 1.73,
+    outline: [[0, 25], [55, 0], [105, 8], [110, 60], [70, 85], [10, 75]],
+    cellSize: 2,
+    height: switchbackHeight,
+    water: [],
+    tracks: [
+      { kind: "road", width: 7, path: [[40, -9], [80, -5], [118, 5]] },
+      { kind: "track", width: 3.5, path: [[98, 8], [88, 22], [60, 24], [40, 30], [38, 42], [62, 46], [84, 52]] },
+      { kind: "track", width: 3, path: [[84, 52], [60, 62], [30, 62]] },
+      { kind: "track", width: 3, path: [[84, 52], [100, 60], [104, 62]] },
+    ],
+    pads: [switchbackPad],
+  },
+  {
+    id: "terrace",
+    name: "Terrace",
+    description:
+      "Four sides on the same climb as Switchback, cut into level steps about 12 metres deep.",
+    acres: 2,
+    outline: [[0, 0], [95, 6], [100, 84], [8, 90]],
+    cellSize: 2,
+    height: terraceHeight,
+    water: [],
+  },
 ];
 
 export function buildSample(recipe: Recipe): SampleLand {
@@ -134,6 +192,15 @@ export function buildSample(recipe: Recipe): SampleLand {
     boundary,
     elevation,
     water: recipe.water.map((course) => ({ ...course, path: course.path.map(scalePoint) })),
+    tracks: (recipe.tracks ?? []).map((track) => ({ ...track, path: track.path.map(scalePoint) })),
+    pads: (recipe.pads ?? []).map(
+      (pad): Pad => ({
+        name: pad.name,
+        centre: scalePoint(pad.centre),
+        radius: round(pad.radius * scale, 2),
+        level: round(recipe.height(pad.centre[0], pad.centre[1]), 1),
+      }),
+    ),
   };
 }
 
